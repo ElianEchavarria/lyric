@@ -54,24 +54,46 @@ const Shell = ({
   </div>
 )
 
+// Depth of field: the further a line sits from the active one, the blurrier,
+// fainter and smaller it gets — so the current line reads as the focal plane.
+// Capped at MAX_DEPTH because blur() is expensive and past ~4 lines it all
+// looks the same anyway.
+const MAX_DEPTH = 4
+
+function depthStyle(distance: number): React.CSSProperties {
+  if (distance === 0) {
+    return { filter: "blur(0px)", opacity: 1, transform: "scale(1)" }
+  }
+  const depth = Math.min(distance, MAX_DEPTH)
+  return {
+    filter: `blur(${(depth * 1.3).toFixed(1)}px)`,
+    opacity: Math.max(0.42 - (depth - 1) * 0.1, 0.13),
+    transform: `scale(${(1 - depth * 0.03).toFixed(3)})`,
+    transformOrigin: "left center",
+  }
+}
+
 const LyricRow = memo(function LyricRow({
   line,
   isActive,
+  distance,
   progress,
   rowRef,
 }: {
   line: SyncedLine
   isActive: boolean
+  distance: number
   progress: number
   rowRef: React.Ref<HTMLParagraphElement> | null
 }) {
   return (
     <p
       ref={rowRef}
+      style={depthStyle(distance)}
       className={
         isActive
-          ? "text-3xl font-bold tracking-tight text-[#F4F2F8] transition-all duration-500"
-          : "text-2xl font-semibold tracking-tight text-[#EDEDF2]/25 transition-all duration-500"
+          ? "text-3xl font-bold tracking-tight text-[#F4F2F8] transition-all duration-500 will-change-[filter,opacity,transform]"
+          : "text-2xl font-semibold tracking-tight text-[#EDEDF2] transition-all duration-500 will-change-[filter,opacity,transform]"
       }
     >
       {isActive ? (
@@ -147,6 +169,7 @@ export function LyricDisplay() {
             key={i}
             line={line}
             isActive={i === activeIndex}
+            distance={activeIndex < 0 ? MAX_DEPTH : Math.abs(i - activeIndex)}
             // inactive rows get a constant 0, so memo skips them every frame
             progress={i === activeIndex ? progress : 0}
             rowRef={i === activeIndex ? activeLineRef : null}
