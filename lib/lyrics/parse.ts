@@ -97,17 +97,36 @@ export function parseLrc(synced: string): SyncedLine[] {
         });
     }
 
-    // Close each line's final word using the next line's start time (the very
-    // last line has nothing after it, so fall back to a short fixed duration).
+    // Second pass: both branches need to look ahead to the next line's start
+    // time, which only exists once every line has been parsed.
     for (let i = 0; i < result.length; i++) {
-        const words = result[i].words;
-        if (!words?.length) continue;
+        const line = result[i];
+        const lineEnd =
+            result[i + 1]?.startTime ?? line.startTime + FINAL_WORD_FALLBACK_MS;
 
-        const lastWord = words[words.length - 1];
-        if (lastWord.endTime > lastWord.startTime) continue;
+        // Enhanced LRC: close the final word, which had no following tag.
+        if (line.words?.length) {
+            const lastWord = line.words[line.words.length - 1];
+            if (lastWord.endTime <= lastWord.startTime) {
+                lastWord.endTime = lineEnd;
+            }
+            continue;
+        }
 
-        lastWord.endTime =
-            result[i + 1]?.startTime ?? lastWord.startTime + FINAL_WORD_FALLBACK_MS;
+        // Plain LRC: no word tags, so approximate them by spreading the line's
+        // text evenly across its duration.
+        const tokens = line.text.split(/\s+/).filter(Boolean);
+        if (!tokens.length) continue; // instrumental markers / empty lines
+
+        const duration = Math.max(lineEnd - line.startTime, 0);
+        const perWord = duration / tokens.length;
+
+        line.words = tokens.map((text, n) => ({
+            text,
+            startTime: Math.round(line.startTime + n * perWord),
+            endTime: Math.round(line.startTime + (n + 1) * perWord),
+        }));
+        line.interpolated = true;
     }
 
     return result

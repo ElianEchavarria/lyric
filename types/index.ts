@@ -33,7 +33,8 @@ export interface Word {
 export interface SyncedLine {
     startTime: number; // ms from track start
     text: string;
-    words?: Word[]; // populated only for enhanced LRC lines
+    words?: Word[]; // real timings from enhanced LRC, or evenly interpolated
+    interpolated?: boolean; // true when word timings were approximated, not parsed
 }
 
 export interface LyricResult {
