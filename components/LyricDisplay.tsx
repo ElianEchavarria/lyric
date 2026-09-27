@@ -5,15 +5,19 @@ import { useNowPlaying } from "@/hooks/useNowPlaying"
 import { useLyrics } from "@/hooks/useLyrics"
 import { usePlaybackClock } from "@/hooks/usePlaybackClock"
 import { useColorPalette, type Palette } from "@/hooks/useColorPalette"
-import { useRef, useEffect } from "react"
+import { KaraokeLine } from "@/components/KaraokeLine"
+import { useSyncOffset } from "@/hooks/useSyncOffset"
+import { useRef, useEffect, memo } from "react"
 import type { SyncedLine } from "@/types"
 
 const Shell = ({
   children,
   palette,
+  syncOffset,
 }: {
   children: React.ReactNode
   palette: Palette
+  syncOffset?: number
 }) => (
   <div
     className="relative min-h-screen transition-colors duration-700"
@@ -41,9 +45,43 @@ const Shell = ({
     >
       ← Playlists
     </Link>
+    {syncOffset !== undefined && (
+      <div className="fixed bottom-5 right-5 z-20 rounded-full bg-black/30 px-3 py-1.5 text-xs text-[#EDEDF2]/40 backdrop-blur-xl">
+        sync {syncOffset}ms · [ ]
+      </div>
+    )}
     <div className="relative z-10">{children}</div>
   </div>
 )
+
+const LyricRow = memo(function LyricRow({
+  line,
+  isActive,
+  progress,
+  rowRef,
+}: {
+  line: SyncedLine
+  isActive: boolean
+  progress: number
+  rowRef: React.Ref<HTMLParagraphElement> | null
+}) {
+  return (
+    <p
+      ref={rowRef}
+      className={
+        isActive
+          ? "text-3xl font-bold tracking-tight text-[#F4F2F8] transition-all duration-500"
+          : "text-2xl font-semibold tracking-tight text-[#EDEDF2]/25 transition-all duration-500"
+      }
+    >
+      {isActive ? (
+        <KaraokeLine line={line} progress={progress} />
+      ) : (
+        line.text || "♪"
+      )}
+    </p>
+  )
+})
 
 const Centered = ({ text }: { text: string }) => (
   <div className="flex min-h-screen items-center justify-center text-[#EDEDF2]/50">
@@ -59,7 +97,12 @@ export function LyricDisplay() {
     nowPlaying?.album,
     nowPlaying?.durationMs,
   )
-  const progress = usePlaybackClock(nowPlaying?.progressMs, nowPlaying?.isPlaying)
+  const syncOffset = useSyncOffset()
+  const progress = usePlaybackClock(
+    nowPlaying?.progressMs,
+    nowPlaying?.isPlaying,
+    syncOffset,
+  )
   const palette = useColorPalette(nowPlaying?.albumArtUrl)
   const activeLineRef = useRef<HTMLParagraphElement>(null)
 
@@ -75,18 +118,18 @@ export function LyricDisplay() {
   }, [activeIndex])
 
   if (!nowPlaying) {
-    return <Shell palette={palette}><Centered text="Nothing playing" /></Shell>
+    return <Shell palette={palette} syncOffset={syncOffset}><Centered text="Nothing playing" /></Shell>
   }
   if (!lyrics) {
-    return <Shell palette={palette}><Centered text="Loading lyrics…" /></Shell>
+    return <Shell palette={palette} syncOffset={syncOffset}><Centered text="Loading lyrics…" /></Shell>
   }
   if (lyrics.type === "none") {
-    return <Shell palette={palette}><Centered text="No lyrics found" /></Shell>
+    return <Shell palette={palette} syncOffset={syncOffset}><Centered text="No lyrics found" /></Shell>
   }
 
   if (lyrics.type === "unsynced") {
     return (
-      <Shell palette={palette}>
+      <Shell palette={palette} syncOffset={syncOffset}>
         <div className="mx-auto max-w-2xl space-y-3 px-6 py-24 text-lg text-[#EDEDF2]/70">
           {(lyrics.lines as string[]).map((line, i) => (
             <p key={i}>{line}</p>
@@ -97,20 +140,17 @@ export function LyricDisplay() {
   }
 
   return (
-    <Shell palette={palette}>
+    <Shell palette={palette} syncOffset={syncOffset}>
       <div className="mx-auto max-w-2xl space-y-4 px-6 py-[40vh]">
         {lines.map((line, i) => (
-          <p
+          <LyricRow
             key={i}
-            ref={i === activeIndex ? activeLineRef : null}
-            className={
-              i === activeIndex
-                ? "text-3xl font-bold tracking-tight text-[#F4F2F8] transition-all duration-500"
-                : "text-2xl font-semibold tracking-tight text-[#EDEDF2]/25 transition-all duration-500"
-            }
-          >
-            {line.text || "♪"}
-          </p>
+            line={line}
+            isActive={i === activeIndex}
+            // inactive rows get a constant 0, so memo skips them every frame
+            progress={i === activeIndex ? progress : 0}
+            rowRef={i === activeIndex ? activeLineRef : null}
+          />
         ))}
       </div>
     </Shell>

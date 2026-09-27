@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from "react"
 export function usePlaybackClock(
   polledProgressMs: number | undefined,
   isPlaying: boolean | undefined,
+  // pushes the clock ahead to cancel API + audio latency; see useSyncOffset
+  offsetMs = 0,
 ) {
   const [progress, setProgress] = useState(0)
 
@@ -18,21 +20,27 @@ export function usePlaybackClock(
   // A fresh poll arrived → hard resync, so drift never accumulates.
   useEffect(() => {
     if (polledProgressMs == null) return
-    anchor.current = { base: polledProgressMs, at: performance.now() }
-    setProgress(polledProgressMs)
-  }, [polledProgressMs])
+    const base = polledProgressMs + offsetMs
+    anchor.current = { base, at: performance.now() }
+    setProgress(base)
+  }, [polledProgressMs, offsetMs])
 
   // While playing, tick forward from the anchor. Not running when paused means
   // the clock freezes — which is exactly right.
   useEffect(() => {
     if (!isPlaying) return
 
-    const id = setInterval(() => {
+    // requestAnimationFrame (~60fps) rather than an interval, so the word-level
+    // sweep in KaraokeLine paints smoothly instead of stepping.
+    let frame: number
+    const tick = () => {
       const { base, at } = anchor.current
       setProgress(base + (performance.now() - at))
-    }, 200) // 200ms is plenty for line-level sync; rAF is for Phase 3 word sweep
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
 
-    return () => clearInterval(id)
+    return () => cancelAnimationFrame(frame)
   }, [isPlaying])
 
   return progress
