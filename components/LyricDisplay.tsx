@@ -60,6 +60,10 @@ const Shell = ({
 // looks the same anyway.
 const MAX_DEPTH = 4
 
+// Active-line moves bigger than this mean a seek/skip rather than normal
+// playback, so the scroll snaps instead of animating through every line.
+const SEEK_JUMP_LINES = 3
+
 function depthStyle(distance: number): React.CSSProperties {
   if (distance === 0) {
     return { filter: "blur(0px)", opacity: 1, transform: "scale(1)" }
@@ -135,9 +139,28 @@ export function LyricDisplay() {
     else break
   }
 
+  const prevIndexRef = useRef(-1)
+  const prevTrackRef = useRef<string | undefined>(undefined)
+
   useEffect(() => {
-    activeLineRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
-  }, [activeIndex])
+    const prevIndex = prevIndexRef.current
+    const prevTrack = prevTrackRef.current
+    prevIndexRef.current = activeIndex
+    prevTrackRef.current = nowPlaying?.track
+
+    if (!activeLineRef.current) return
+
+    // A seek or a track change moves the active line by a lot. Smooth-scrolling
+    // across that distance takes seconds and looks broken, so snap instead.
+    const jumped =
+      nowPlaying?.track !== prevTrack ||
+      Math.abs(activeIndex - prevIndex) > SEEK_JUMP_LINES
+
+    activeLineRef.current.scrollIntoView({
+      behavior: jumped ? "auto" : "smooth",
+      block: "center",
+    })
+  }, [activeIndex, nowPlaying?.track])
 
   if (!nowPlaying) {
     return <Shell palette={palette} syncOffset={syncOffset}><Centered text="Nothing playing" /></Shell>
