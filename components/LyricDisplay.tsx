@@ -6,6 +6,7 @@ import { useLyrics } from "@/hooks/useLyrics"
 import { usePlaybackClock } from "@/hooks/usePlaybackClock"
 import { useColorPalette, type Palette } from "@/hooks/useColorPalette"
 import { KaraokeLine } from "@/components/KaraokeLine"
+import { SourceBadge } from "@/components/SourceBadge"
 import { useSyncOffset } from "@/hooks/useSyncOffset"
 import { useRef, useEffect, memo } from "react"
 import type { SyncedLine } from "@/types"
@@ -162,19 +163,22 @@ export function LyricDisplay() {
     })
   }, [activeIndex, nowPlaying?.track])
 
+  // The sync-offset readout is only shown on synced lyrics — it does nothing
+  // anywhere else, so showing it there would just be noise.
   if (!nowPlaying) {
-    return <Shell palette={palette} syncOffset={syncOffset}><Centered text="Nothing playing" /></Shell>
+    return <Shell palette={palette}><Centered text="Nothing playing" /></Shell>
   }
   if (!lyrics) {
-    return <Shell palette={palette} syncOffset={syncOffset}><Centered text="Loading lyrics…" /></Shell>
+    return <Shell palette={palette}><Centered text="Loading lyrics…" /></Shell>
   }
   if (lyrics.type === "none") {
-    return <Shell palette={palette} syncOffset={syncOffset}><Centered text="No lyrics found" /></Shell>
+    return <Shell palette={palette}><Centered text="No lyrics found" /></Shell>
   }
 
   if (lyrics.type === "unsynced") {
     return (
-      <Shell palette={palette} syncOffset={syncOffset}>
+      <Shell palette={palette}>
+        <SourceBadge source={lyrics.source} type={lyrics.type} />
         <div className="mx-auto max-w-2xl space-y-3 px-6 py-24 text-lg text-[#EDEDF2]/70">
           {(lyrics.lines as string[]).map((line, i) => (
             <p key={i}>{line}</p>
@@ -186,6 +190,7 @@ export function LyricDisplay() {
 
   return (
     <Shell palette={palette} syncOffset={syncOffset}>
+      <SourceBadge source={lyrics.source} type={lyrics.type} />
       <div className="mx-auto max-w-2xl space-y-4 px-6 py-[40vh]">
         {lines.map((line, i) => (
           <LyricRow

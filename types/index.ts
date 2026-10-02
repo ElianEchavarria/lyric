@@ -38,7 +38,7 @@ export interface SyncedLine {
 }
 
 export interface LyricResult {
-    source: "lrclib" | "musixmatch" | "genius" | null;
+    source: "lrclib" | "genius" | null;
     type: "synced-lines" | "synced-words" | "unsynced" | "none";
     lines: SyncedLine[] | string[];
 }
