@@ -1,12 +1,4 @@
-import { parseLrc } from "@/lib/lyrics/parse";
-
-// Only the fields we care about from lrclib's /api/get response.
-// syncedLyrics/plainLyrics are null for instrumental tracks.
-interface LrclibResponse {
-    syncedLyrics: string | null;
-    plainLyrics: string | null;
-    instrumental: boolean;
-}
+import { getLyrics } from "@/lib/lyrics/chain";
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -19,54 +11,14 @@ export async function GET(request: Request) {
         return Response.json({ error: "Missing track or artist" }, { status: 400 });
     }
 
-    // URLSearchParams URL-encodes every value (handles spaces, &, etc.);
-    // only add album/duration when present so we never send "null".
-    const params = new URLSearchParams({ artist_name: artist, track_name: track });
-    if (album) params.set("album_name", album);
-    if (duration) params.set("duration", duration);
-
     try {
-        const res = await fetch(`https://lrclib.net/api/get?${params}`, {
-            headers: { "User-Agent": "Lyriq (https://github.com/elian/lyriq)" },
+        const result = await getLyrics({
+            track,
+            artist,
+            album: album ?? undefined,
+            durationSec: duration ?? undefined,
         });
-
-        // 404 = lrclib doesn't have this song → the expected "no lyrics" case,
-        // not a server error. (Later this is where the waterfall falls to the next source.)
-        if (res.status === 404) {
-            return Response.json({ source: null, type: "none", lines: [] });
-        }
-
-        if (!res.ok) {
-            const body = await res.text();
-            console.error("lrclib error:", res.status, body);
-            return Response.json(
-                { error: "Failed to fetch lyrics", lrclibStatus: res.status },
-                { status: 500 },
-            );
-        }
-
-        const data = (await res.json()) as LrclibResponse;
-
-        // Synced lyrics → parse into timestamped lines
-        if (data.syncedLyrics) {
-            return Response.json({
-                source: "lrclib",
-                type: "synced-lines",
-                lines: parseLrc(data.syncedLyrics),
-            });
-        }
-
-        // Only plain (unsynced) text available → return it line by line
-        if (data.plainLyrics) {
-            return Response.json({
-                source: "lrclib",
-                type: "unsynced",
-                lines: data.plainLyrics.split("\n"),
-            });
-        }
-
-        // Instrumental or empty → no lyrics
-        return Response.json({ source: null, type: "none", lines: [] });
+        return Response.json(result);
     } catch (error) {
         console.error("Failed to fetch lyrics:", error);
         return Response.json({ error: "Failed to fetch lyrics" }, { status: 500 });
