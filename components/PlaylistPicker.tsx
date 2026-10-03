@@ -72,12 +72,20 @@ const PlaylistPicker = () => {
               Tap one to play it on your active Spotify device.
             </p>
           </div>
-          <Link
-            href="/player"
-            className="shrink-0 rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
-          >
-            Now playing →
-          </Link>
+          <nav className="flex shrink-0 gap-2">
+            <Link
+              href="/library"
+              className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
+            >
+              Library
+            </Link>
+            <Link
+              href="/player"
+              className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
+            >
+              Now playing →
+            </Link>
+          </nav>
         </header>
 
         {message && (

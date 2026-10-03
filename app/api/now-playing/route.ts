@@ -7,8 +7,10 @@ import { auth } from "@/lib/auth";
 interface SpotifyNowPlaying {
     is_playing: boolean;
     progress_ms: number;
+    currently_playing_type: "track" | "episode" | "ad" | "unknown";
+    // null during ads, for podcast episodes, and briefly between tracks
     item: {
-        id: string;
+        id: string | null; // null for local files
         name: string;
         duration_ms: number;
         artists: { name: string }[];
@@ -16,7 +18,7 @@ interface SpotifyNowPlaying {
             name: string;
             images: { url: string }[];
         };
-    };
+    } | null;
 }
 
 
@@ -50,8 +52,15 @@ export async function GET() {
             throw new Error(`Spotify API error: ${res.status} ${res.statusText}`);
         }
 
+        // An ad, a podcast episode, or the gap between tracks: Spotify still says
+        // "something is playing" but sends no track. There's nothing to show
+        // lyrics for, so treat it like nothing playing rather than crashing.
+        if (!data.item || data.currently_playing_type !== "track") {
+            return Response.json(null);
+        }
+
         return Response.json({
-            trackId: data.item.id,
+            trackId: data.item.id ?? "",
             track: data.item.name,
             artist: data.item.artists.map((a: { name: string }) => a.name).join(", "),
             album: data.item.album.name,

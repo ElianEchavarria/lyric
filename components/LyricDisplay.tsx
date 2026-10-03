@@ -7,7 +7,7 @@ import { usePlaybackClock } from "@/hooks/usePlaybackClock"
 import { useColorPalette, type Palette } from "@/hooks/useColorPalette"
 import { KaraokeLine } from "@/components/KaraokeLine"
 import { SourceBadge } from "@/components/SourceBadge"
-import { ShareBar } from "@/components/ShareBar"
+import { SelectionBar } from "@/components/SelectionBar"
 import { useSyncOffset } from "@/hooks/useSyncOffset"
 import { shareLyricCard } from "@/lib/shareCard"
 import { useRef, useEffect, useCallback, useState, memo } from "react"
@@ -42,12 +42,20 @@ const Shell = ({
         background: `radial-gradient(75% 55% at 50% 0%, ${palette.accent}, transparent 70%)`,
       }}
     />
-    <Link
-      href="/playlists"
-      className="fixed left-5 top-5 z-20 rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
-    >
-      ← Playlists
-    </Link>
+    <nav className="fixed left-5 top-5 z-20 flex gap-2">
+      <Link
+        href="/playlists"
+        className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
+      >
+        ← Playlists
+      </Link>
+      <Link
+        href="/library"
+        className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
+      >
+        Library
+      </Link>
+    </nav>
     {syncOffset !== undefined && (
       <div className="fixed bottom-5 right-5 z-20 rounded-full bg-black/30 px-3 py-1.5 text-xs text-[#EDEDF2]/40 backdrop-blur-xl">
         sync {syncOffset}ms · [ ]
@@ -266,14 +274,55 @@ export function LyricDisplay() {
     setSelection(null)
   }
 
+  async function saveMoment(note: string) {
+    if (!nowPlaying) return
+    const texts = selected.map((i) => lineTexts[i]).filter((text) => text.trim())
+    if (!texts.length) throw new Error("selected lines have no text")
+
+    let startMs: number
+    let endMs: number
+    if (lyrics?.type === "synced-lines") {
+      // The window runs from the first selected line to where the line after the
+      // last one begins — exactly the stretch of song the moment covers.
+      const first = selected[0]
+      const last = selected[selected.length - 1]
+      startMs = lines[first].startTime
+      endMs = lines[last + 1]?.startTime ?? lines[last].startTime + 4000
+    } else {
+      // Plain-text lyrics have no timings, so remember where the song was when
+      // saved. (progress runs ahead by the sync offset; take it back out.)
+      startMs = Math.max(0, Math.round(progress - syncOffset))
+      endMs = startMs
+    }
+
+    const res = await fetch("/api/moments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trackId: nowPlaying.trackId,
+        track: nowPlaying.track,
+        artist: nowPlaying.artist,
+        album: nowPlaying.album,
+        albumArtUrl: nowPlaying.albumArtUrl,
+        startMs,
+        endMs,
+        lines: texts,
+        note: note || null,
+      }),
+    })
+    if (!res.ok) throw new Error(`save responded ${res.status}`)
+    setSelection(null)
+  }
+
   const shareBar = (
-    <ShareBar
+    <SelectionBar
       selecting={selecting}
       count={selected.length}
       max={MAX_CARD_LINES}
       onStart={() => setSelection({ track: nowPlaying?.track, indices: [] })}
       onCancel={() => setSelection(null)}
-      onCreate={createCard}
+      onShare={createCard}
+      onSave={saveMoment}
     />
   )
 
