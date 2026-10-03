@@ -90,6 +90,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // getToken() would NOT run the refresh callback — see PLAN.md challenge #13
       session.access_token = token.access_token
       session.error = token.error
+      // `sub` is the Spotify user ID (no DB adapter, so Auth.js takes it straight
+      // from the Spotify profile). Stable across logins — moments are keyed on it.
+      if (token.sub) session.user.id = token.sub
       return session
     },
   },

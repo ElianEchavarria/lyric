@@ -8,6 +8,7 @@ interface SpotifyNowPlaying {
     is_playing: boolean;
     progress_ms: number;
     item: {
+        id: string;
         name: string;
         duration_ms: number;
         artists: { name: string }[];
@@ -50,6 +51,7 @@ export async function GET() {
         }
 
         return Response.json({
+            trackId: data.item.id,
             track: data.item.name,
             artist: data.item.artists.map((a: { name: string }) => a.name).join(", "),
             album: data.item.album.name,

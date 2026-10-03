@@ -1,5 +1,6 @@
 // types/index.ts
 export interface NowPlaying {
+    trackId: string; // Spotify track ID — lets a saved moment replay this exact song
     track: string;
     artist: string;
     album: string;
@@ -7,6 +8,22 @@ export interface NowPlaying {
     durationMs: number;
     progressMs: number;
     isPlaying: boolean;
+}
+
+// A saved lyric moment as the API returns it. The owner's userId stays
+// server-side, and createdAt is a string because Dates turn into strings in JSON.
+export interface Moment {
+    id: string;
+    trackId: string;
+    track: string;
+    artist: string;
+    album: string;
+    albumArtUrl: string;
+    startMs: number;
+    endMs: number;
+    lines: string[];
+    note: string | null;
+    createdAt: string;
 }
 
 export interface Playlist {

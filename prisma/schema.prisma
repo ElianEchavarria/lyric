@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// A saved lyric moment. Private: only ever read back by the user who saved it.
+model Moment {
+  id          String   @id @default(cuid())
+  // Spotify user ID (the JWT's `sub`). There's no User table: auth stays on
+  // JWT sessions, so the Spotify ID is the user's identity.
+  userId      String
+  trackId     String
+  track       String
+  artist      String
+  album       String
+  albumArtUrl String
+  startMs     Int
+  endMs       Int
+  lines       String[]
+  note        String?
+  createdAt   DateTime @default(now())
+
+  // The library lists one user's moments newest-first, paged by cursor.
+  @@index([userId, createdAt(sort: Desc)])
+}
