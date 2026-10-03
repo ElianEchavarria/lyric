@@ -2,6 +2,20 @@ import { auth } from "@/lib/auth";
 
 const SPOTIFY_URI = /^spotify:(playlist|album|artist|track):[A-Za-z0-9]+$/;
 
+// The album a track belongs to, or null if Spotify can't tell us.
+async function albumUriFor(trackId: string, token: string): Promise<string | null> {
+    try {
+        const res = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return null;
+        const track = (await res.json()) as { album?: { uri?: string } };
+        return track.album?.uri ?? null;
+    } catch {
+        return null;
+    }
+}
+
 // Starts playback on the user's ACTIVE Spotify device (phone/desktop).
 // No audio plays in the browser — this is a remote-control command.
 //
@@ -28,8 +42,16 @@ export async function POST(request: Request) {
             : undefined;
 
     let payload: Record<string, unknown>;
-    if (typeof trackUri === "string" && SPOTIFY_URI.test(trackUri)) {
-        payload = { uris: [trackUri], ...(position !== undefined && { position_ms: position }) };
+    if (typeof trackUri === "string" && trackUri.startsWith("spotify:track:") && SPOTIFY_URI.test(trackUri)) {
+        const positionField = position !== undefined ? { position_ms: position } : {};
+        // Play the track inside its album rather than as a bare one-track list.
+        // Spotify's Mac app accepted the bare `{ uris: [track] }` form (204) but
+        // never loaded the song, while album/playlist context plays fine.
+        // Bonus: once the moment's song ends, the album carries on.
+        const albumUri = await albumUriFor(trackUri.split(":")[2], session.access_token);
+        payload = albumUri
+            ? { context_uri: albumUri, offset: { uri: trackUri }, ...positionField }
+            : { uris: [trackUri], ...positionField };
     } else if (typeof contextUri === "string" && SPOTIFY_URI.test(contextUri)) {
         payload = { context_uri: contextUri };
     } else {
