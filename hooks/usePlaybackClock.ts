@@ -1,4 +1,9 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+
+// After a click-to-seek, the next poll can still report the PRE-seek position
+// if it lands before Spotify has applied the seek. Ignoring polls for this long
+// stops the highlight from flickering back to the old line and then forward again.
+const SEEK_GRACE_MS = 1500
 
 // Spotify's progressMs only refreshes once per poll (~3s), so it sits frozen in
 // between — which makes lyric highlighting lag behind the audio by up to 3s.
@@ -16,10 +21,12 @@ export function usePlaybackClock(
   // A ref (not state) because updating the anchor shouldn't cause a re-render —
   // only the visible `progress` should.
   const anchor = useRef({ base: 0, at: 0 })
+  const lastSeekAt = useRef(-Infinity)
 
   // A fresh poll arrived → hard resync, so drift never accumulates.
   useEffect(() => {
     if (polledProgressMs == null) return
+    if (performance.now() - lastSeekAt.current < SEEK_GRACE_MS) return
     const base = polledProgressMs + offsetMs
     anchor.current = { base, at: performance.now() }
     setProgress(base)
@@ -43,5 +50,17 @@ export function usePlaybackClock(
     return () => cancelAnimationFrame(frame)
   }, [isPlaying])
 
-  return progress
+  // Optimistic seek: move the clock now instead of waiting up to 3s for the
+  // next poll to confirm it, so clicking a line responds instantly.
+  const seekTo = useCallback(
+    (positionMs: number) => {
+      lastSeekAt.current = performance.now()
+      const base = positionMs + offsetMs
+      anchor.current = { base, at: performance.now() }
+      setProgress(base)
+    },
+    [offsetMs],
+  )
+
+  return { progress, seekTo }
 }

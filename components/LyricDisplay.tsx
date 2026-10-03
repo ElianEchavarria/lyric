@@ -8,7 +8,7 @@ import { useColorPalette, type Palette } from "@/hooks/useColorPalette"
 import { KaraokeLine } from "@/components/KaraokeLine"
 import { SourceBadge } from "@/components/SourceBadge"
 import { useSyncOffset } from "@/hooks/useSyncOffset"
-import { useRef, useEffect, memo } from "react"
+import { useRef, useEffect, useCallback, memo } from "react"
 import type { SyncedLine } from "@/types"
 
 const Shell = ({
@@ -84,21 +84,26 @@ const LyricRow = memo(function LyricRow({
   distance,
   progress,
   rowRef,
+  onSeek,
 }: {
   line: SyncedLine
   isActive: boolean
   distance: number
   progress: number
   rowRef: React.Ref<HTMLParagraphElement> | null
+  onSeek: (positionMs: number) => void
 }) {
   return (
     <p
       ref={rowRef}
+      onClick={() => onSeek(line.startTime)}
       style={depthStyle(distance)}
       className={
         isActive
-          ? "text-3xl font-bold tracking-tight text-[#F4F2F8] transition-all duration-500 will-change-[filter,opacity,transform]"
-          : "text-2xl font-semibold tracking-tight text-[#EDEDF2] transition-all duration-500 will-change-[filter,opacity,transform]"
+          ? "cursor-pointer text-3xl font-bold tracking-tight text-[#F4F2F8] transition-all duration-500 will-change-[filter,opacity,transform]"
+          : // `!` is needed because depthStyle sets opacity/filter inline, and
+            // inline styles beat normal classes — so hover couldn't otherwise lift it.
+            "cursor-pointer text-2xl font-semibold tracking-tight text-[#EDEDF2] transition-all duration-500 will-change-[filter,opacity,transform] hover:opacity-80! hover:blur-none!"
       }
     >
       {isActive ? (
@@ -125,13 +130,33 @@ export function LyricDisplay() {
     nowPlaying?.durationMs,
   )
   const syncOffset = useSyncOffset()
-  const progress = usePlaybackClock(
+  const { progress, seekTo } = usePlaybackClock(
     nowPlaying?.progressMs,
     nowPlaying?.isPlaying,
     syncOffset,
   )
   const palette = useColorPalette(nowPlaying?.albumArtUrl)
   const activeLineRef = useRef<HTMLParagraphElement>(null)
+
+  // useCallback keeps this function's identity stable across renders. LyricRow
+  // is memoized, so a new function every frame would defeat the memo and
+  // re-render every row 60 times a second again.
+  const handleSeek = useCallback(
+    async (positionMs: number) => {
+      seekTo(positionMs) // move the highlight now; Spotify catches up behind it
+      try {
+        const res = await fetch("/api/seek", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ positionMs }),
+        })
+        if (!res.ok) console.error("seek failed:", res.status)
+      } catch (err) {
+        console.error("seek error:", err)
+      }
+    },
+    [seekTo],
+  )
 
   const lines = lyrics?.type === "synced-lines" ? (lyrics.lines as SyncedLine[]) : []
   let activeIndex = -1
@@ -201,6 +226,7 @@ export function LyricDisplay() {
             // inactive rows get a constant 0, so memo skips them every frame
             progress={i === activeIndex ? progress : 0}
             rowRef={i === activeIndex ? activeLineRef : null}
+            onSeek={handleSeek}
           />
         ))}
       </div>
