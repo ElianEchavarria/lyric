@@ -5,11 +5,12 @@ import { ImageResponse } from "next/og";
 
 // The renderer's built-in font only has a regular weight, so bold text comes
 // out thin unless we supply real font files. Read once, lazily, and reused.
+// (They live in public/ so the browser can also load them for reel rendering.)
 let fonts: Promise<[Buffer, Buffer]> | null = null;
 function loadFonts() {
     fonts ??= Promise.all([
-        readFile(join(process.cwd(), "assets/fonts/Inter-Medium.woff")),
-        readFile(join(process.cwd(), "assets/fonts/Inter-ExtraBold.woff")),
+        readFile(join(process.cwd(), "public/fonts/Inter-Medium.woff")),
+        readFile(join(process.cwd(), "public/fonts/Inter-ExtraBold.woff")),
     ]);
     return fonts;
 }

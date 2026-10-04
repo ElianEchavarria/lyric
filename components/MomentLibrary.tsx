@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { ReelExporter } from "@/components/ReelExporter"
 import type { Moment } from "@/types"
 
 // Warm→cool pairs from the design spec, cycled across song groups.
@@ -73,6 +74,7 @@ export function MomentLibrary() {
   const [message, setMessage] = useState<string | null>(null)
   // Deleting takes two taps: the first arms it, the second confirms.
   const [armedDelete, setArmedDelete] = useState<string | null>(null)
+  const [reelMoment, setReelMoment] = useState<Moment | null>(null)
 
   useEffect(() => {
     // ignore a response that arrives after the page was left
@@ -241,6 +243,12 @@ export function MomentLibrary() {
                           ▶ Replay
                         </button>
                         <button
+                          onClick={() => setReelMoment(m)}
+                          className="font-semibold text-[#F5A34A] transition hover:brightness-125"
+                        >
+                          ✦ Reel
+                        </button>
+                        <button
                           onClick={() => remove(m.id)}
                           className={`ml-auto font-semibold transition ${
                             armedDelete === m.id ? "text-[#F5A34A]" : "hover:text-[#EDEDF2]"
@@ -263,6 +271,8 @@ export function MomentLibrary() {
           </button>
         )}
       </div>
+
+      {reelMoment && <ReelExporter moment={reelMoment} onClose={() => setReelMoment(null)} />}
     </main>
   )
 }
