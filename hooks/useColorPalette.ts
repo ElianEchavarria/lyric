@@ -18,10 +18,8 @@ export function useColorPalette(albumArtUrl: string | undefined) {
   const [palette, setPalette] = useState<Palette>(FALLBACK)
 
   useEffect(() => {
-    if (!albumArtUrl) {
-      setPalette(FALLBACK)
-      return
-    }
+    // Nothing to extract; the return below falls back without touching state.
+    if (!albumArtUrl) return
 
     // guards against a slow extraction landing after the track already changed
     let cancelled = false
@@ -59,5 +57,7 @@ export function useColorPalette(albumArtUrl: string | undefined) {
     }
   }, [albumArtUrl])
 
-  return palette
+  // While a new track's colours are being extracted, the previous palette stays
+  // up — the page then cross-fades old → new instead of flashing to grey first.
+  return albumArtUrl ? palette : FALLBACK
 }

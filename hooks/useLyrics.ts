@@ -1,44 +1,66 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import type { LyricResult } from "@/types"
 
-// Fetches lyrics for the current track. Re-runs only when track/artist change
+export type LyricsState =
+  | { status: "idle" } // nothing to look up yet
+  | { status: "loading" }
+  | { status: "ready"; lyrics: LyricResult }
+  | { status: "error"; retry: () => void }
+
+type Settled = { key: string } & (
+  | { status: "ready"; lyrics: LyricResult }
+  | { status: "error" }
+)
+
+// Fetches lyrics for the current track. Re-runs only when the track changes
 // (not on every now-playing poll), because those strings stay stable per song.
 export function useLyrics(
   track: string | undefined,
   artist: string | undefined,
   album?: string,
   durationMs?: number,
-) {
-  const [lyrics, setLyrics] = useState<LyricResult | null>(null)
+): LyricsState {
+  const [settled, setSettled] = useState<Settled | null>(null)
+  const [attempt, setAttempt] = useState(0)
+
+  // Identifies one lookup. A result only counts if it carries the current key,
+  // so a new track reads as "loading" straight away — no need to clear old
+  // state in an effect, and a slow response for the old track can't show.
+  const key = track && artist ? `${artist}::${track}::${album ?? ""}::${durationMs ?? ""}::${attempt}` : null
 
   useEffect(() => {
-    if (!track || !artist) return
-
-    // guards against a stale response landing after the track already changed
+    if (!key || !track || !artist) return
     let cancelled = false
 
-    async function load() {
-      const params = new URLSearchParams({ track: track!, artist: artist! })
-      if (album) params.set("album", album)
-      if (durationMs) params.set("duration", String(Math.round(durationMs / 1000)))
+    const params = new URLSearchParams({ track, artist })
+    if (album) params.set("album", album)
+    if (durationMs) params.set("duration", String(Math.round(durationMs / 1000)))
 
-      try {
-        const res = await fetch(`/api/lyrics?${params}`)
-        if (!res.ok) return
-        const data = (await res.json()) as LyricResult
-        if (!cancelled) setLyrics(data)
-      } catch (err) {
-        console.error("lyrics error:", err)
-      }
-    }
-
-    setLyrics(null) // clear old lyrics while the new track's load is in flight
-    load()
+    fetch(`/api/lyrics?${params}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`lyrics responded ${res.status}`)
+        return res.json() as Promise<LyricResult>
+      })
+      .then(
+        (lyrics) => {
+          if (!cancelled) setSettled({ key, status: "ready", lyrics })
+        },
+        (err) => {
+          console.error("lyrics error:", err)
+          if (!cancelled) setSettled({ key, status: "error" })
+        },
+      )
 
     return () => {
       cancelled = true
     }
-  }, [track, artist, album, durationMs])
+  }, [key, track, artist, album, durationMs])
 
-  return lyrics
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+
+  if (!key) return { status: "idle" }
+  if (settled?.key !== key) return { status: "loading" }
+  return settled.status === "ready"
+    ? { status: "ready", lyrics: settled.lyrics }
+    : { status: "error", retry }
 }

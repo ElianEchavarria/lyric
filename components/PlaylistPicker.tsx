@@ -5,8 +5,21 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { Playlist } from "@/types"
 
+type LoadState =
+  | { status: "loading" }
+  | { status: "ready"; playlists: Playlist[] }
+  | { status: "signed-out" }
+  | { status: "error" }
+
+const Status = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#0A0A0F] px-6 text-center text-[#EDEDF2]/60">
+    {children}
+  </div>
+)
+
 const PlaylistPicker = () => {
-  const [playlists, setPlaylists] = useState<Playlist[] | null>(null)
+  const [load, setLoad] = useState<LoadState>({ status: "loading" })
+  const [attempt, setAttempt] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const router = useRouter()
 
@@ -33,29 +46,58 @@ const PlaylistPicker = () => {
   }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/playlists")
-        if (!res.ok) {
-          console.error("playlists failed:", res.status)
-          return
-        }
-        const data = (await res.json()) as Playlist[]
-        setPlaylists(data)
-      } catch (err) {
+    let cancelled = false
+    fetch("/api/playlists")
+      .then(async (res): Promise<LoadState> => {
+        if (res.status === 401) return { status: "signed-out" }
+        if (!res.ok) throw new Error(`playlists responded ${res.status}`)
+        return { status: "ready", playlists: (await res.json()) as Playlist[] }
+      })
+      .catch((err): LoadState => {
         console.error("playlists error:", err)
-      }
+        return { status: "error" }
+      })
+      .then((next) => {
+        if (!cancelled) setLoad(next)
+      })
+    return () => {
+      cancelled = true
     }
-    load()
-  }, [])
+  }, [attempt])
 
-  if (!playlists) {
+  if (load.status === "loading") {
+    return <Status>Loading playlists…</Status>
+  }
+  if (load.status === "signed-out") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0F] text-[#EDEDF2]/50">
-        <p>Loading playlists…</p>
-      </div>
+      <Status>
+        <p>
+          <Link href="/" className="font-semibold text-[#F4F2F8] underline underline-offset-4">
+            Sign in with Spotify
+          </Link>{" "}
+          to see your playlists.
+        </p>
+      </Status>
     )
   }
+  if (load.status === "error") {
+    return (
+      <Status>
+        <p>Couldn&apos;t load your playlists.</p>
+        <button
+          onClick={() => {
+            setLoad({ status: "loading" })
+            setAttempt((n) => n + 1)
+          }}
+          className="font-semibold text-[#F4F2F8] underline underline-offset-4"
+        >
+          Try again
+        </button>
+      </Status>
+    )
+  }
+
+  const { playlists } = load
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0A0A0F] px-6 py-12 sm:px-10">
@@ -63,7 +105,7 @@ const PlaylistPicker = () => {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_100%_at_50%_0%,rgba(91,46,145,0.35),rgba(196,84,120,0.12)_45%,transparent_75%)]" />
 
       <div className="relative mx-auto max-w-6xl">
-        <header className="mb-10 flex items-start justify-between gap-4">
+        <header className="mb-10 flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <h1 className="text-4xl font-black tracking-[-0.04em] text-[#F4F2F8] sm:text-5xl">
               Your playlists

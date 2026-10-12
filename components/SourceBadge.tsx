@@ -19,13 +19,15 @@ export function SourceBadge({
   const synced = type === "synced-lines" || type === "synced-words"
 
   return (
-    <div className="fixed right-5 top-5 z-20 flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#EDEDF2]/70 backdrop-blur-xl">
+    <div className="lyriq-chrome fixed right-5 top-5 z-20 flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#EDEDF2]/70 backdrop-blur-xl">
       <span
         className={`h-2 w-2 rounded-full ${
           synced ? "animate-pulse bg-[#7BE29A]" : "bg-[#EDEDF2]/35"
         }`}
       />
-      {SOURCE_NAMES[source]} · {synced ? "synced" : "not synced"}
+      {/* the source name is dropped on phones so the badge clears the nav */}
+      <span className="hidden sm:inline">{SOURCE_NAMES[source]} · </span>
+      {synced ? "synced" : "not synced"}
     </div>
   )
 }

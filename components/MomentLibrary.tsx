@@ -141,7 +141,7 @@ export function MomentLibrary() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_100%_at_50%_0%,rgba(91,46,145,0.35),rgba(196,84,120,0.12)_45%,transparent_75%)]" />
 
       <div className="relative mx-auto max-w-3xl">
-        <header className="mb-10 flex items-start justify-between gap-4">
+        <header className="mb-10 flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <h1 className="text-4xl font-black tracking-[-0.04em] text-[#F4F2F8] sm:text-5xl">
               Your moments

@@ -4,7 +4,8 @@ import Link from "next/link"
 import { useNowPlaying } from "@/hooks/useNowPlaying"
 
 const NowPlaying = () => {
-  const nowPlaying = useNowPlaying()
+  const player = useNowPlaying()
+  const nowPlaying = player.status === "ready" ? player.nowPlaying : null
 
   return (
     <div className="relative min-h-screen bg-[#0A0A0F]">

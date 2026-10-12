@@ -10,54 +10,108 @@ import { SourceBadge } from "@/components/SourceBadge"
 import { SelectionBar } from "@/components/SelectionBar"
 import { useSyncOffset } from "@/hooks/useSyncOffset"
 import { shareLyricCard } from "@/lib/shareCard"
-import { useRef, useEffect, useCallback, useState, memo } from "react"
+import { useRef, useEffect, useCallback, useState, useSyncExternalStore, memo } from "react"
+import { useIdle } from "@/hooks/useIdle"
 import type { SyncedLine } from "@/types"
+
+const NAV_PILL =
+  "rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
+
+// Seconds of no input before the buttons fade away and only lyrics remain.
+const CINEMA_IDLE_MS = 10_000
+
+const subscribeNever = () => () => {}
+const subscribeFullscreen = (onChange: () => void) => {
+  document.addEventListener("fullscreenchange", onChange)
+  return () => document.removeEventListener("fullscreenchange", onChange)
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen()
+  else document.documentElement.requestFullscreen().catch(() => {})
+}
+
+// Browsers only allow full screen from a click or key press, so cinema mode
+// can't enter it on its own — this is the one-tap way in.
+function FullscreenButton() {
+  const active = useSyncExternalStore(
+    subscribeFullscreen,
+    () => Boolean(document.fullscreenElement),
+    () => false,
+  )
+  const supported = useSyncExternalStore(
+    subscribeNever,
+    () => document.fullscreenEnabled,
+    () => false, // unknown on the server
+  )
+  // iPhone Safari can't put a page in full screen at all
+  if (!supported) return null
+  return (
+    // Hidden on phones: there's no room next to the badge, and on a phone
+    // cinema mode already strips the screen down to the lyrics.
+    <button
+      onClick={toggleFullscreen}
+      className={`${NAV_PILL} hidden sm:inline-block`}
+      title="Full screen (F)"
+    >
+      {active ? "Exit full screen" : "Full screen"}
+    </button>
+  )
+}
 
 const Shell = ({
   children,
   palette,
+  art,
   syncOffset,
+  cinema = false,
 }: {
   children: React.ReactNode
   palette: Palette
+  art?: string
   syncOffset?: number
+  cinema?: boolean
 }) => (
   <div
-    className="relative min-h-screen transition-colors duration-700"
-    style={{ backgroundColor: palette.dark }}
+    data-cinema={cinema}
+    className="lyriq-palette relative min-h-screen"
+    // The palette goes in as CSS variables (registered in globals.css), so a
+    // track change animates the colours instead of snapping the gradients.
+    style={
+      {
+        "--lyriq-dark": palette.dark,
+        "--lyriq-mid": palette.mid,
+        "--lyriq-accent": palette.accent,
+        backgroundColor: "var(--lyriq-dark)",
+      } as React.CSSProperties
+    }
   >
-    <div
-      className="pointer-events-none fixed inset-0 transition-[background] duration-700"
-      style={{
-        background: `linear-gradient(180deg, ${palette.mid} 0%, ${palette.dark} 100%)`,
-      }}
-    />
-    <div
-      className="pointer-events-none fixed inset-0 opacity-25 transition-colors duration-700"
-      style={{ backgroundColor: palette.accent }}
-    />
-    <div
-      className="pointer-events-none fixed inset-0 opacity-45 transition-[background] duration-700"
-      style={{
-        background: `radial-gradient(75% 55% at 50% 0%, ${palette.accent}, transparent 70%)`,
-      }}
-    />
-    <nav className="fixed left-5 top-5 z-20 flex gap-2">
-      <Link
-        href="/playlists"
-        className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
-      >
+    <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,var(--lyriq-mid)_0%,var(--lyriq-dark)_100%)]" />
+    {art && (
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        {/* The outer layer animates; the blur sits on the inner one, so the
+            browser blurs once and only scales the result each frame. */}
+        <div key={art} className="lyriq-art absolute inset-0 will-change-transform">
+          <div
+            className="absolute inset-0 bg-cover bg-center blur-[60px]"
+            style={{ backgroundImage: `url("${art}")` }}
+          />
+        </div>
+      </div>
+    )}
+    <div className="pointer-events-none fixed inset-0 bg-[var(--lyriq-accent)] opacity-25" />
+    <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(75%_55%_at_50%_0%,var(--lyriq-accent),transparent_70%)] opacity-45" />
+    <nav className="lyriq-chrome fixed left-5 top-5 z-20 flex flex-wrap gap-2">
+      <Link href="/playlists" className={NAV_PILL}>
         ← Playlists
       </Link>
-      <Link
-        href="/library"
-        className="rounded-full bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[#F4F2F8] backdrop-blur-xl transition hover:bg-white/[0.12]"
-      >
+      <Link href="/library" className={NAV_PILL}>
         Library
       </Link>
+      <FullscreenButton />
     </nav>
     {syncOffset !== undefined && (
-      <div className="fixed bottom-5 right-5 z-20 rounded-full bg-black/30 px-3 py-1.5 text-xs text-[#EDEDF2]/40 backdrop-blur-xl">
+      <div className="lyriq-chrome fixed bottom-5 right-5 z-20 rounded-full bg-black/30 px-3 py-1.5 text-xs text-[#EDEDF2]/40 backdrop-blur-xl">
         sync {syncOffset}ms · [ ]
       </div>
     )}
@@ -100,7 +154,10 @@ function selectStyle(selected: boolean): React.CSSProperties {
   return { filter: "none", opacity: selected ? 1 : 0.4, transform: "none" }
 }
 
-const ROW = "cursor-pointer tracking-tight transition-all duration-500 will-change-[filter,opacity,transform]"
+// A long ease-out curve: lines glide into focus and settle, rather than moving
+// at one speed and stopping abruptly.
+const ROW =
+  "cursor-pointer tracking-tight transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[filter,opacity,transform]"
 
 const LyricRow = memo(function LyricRow({
   line,
@@ -153,20 +210,26 @@ const LyricRow = memo(function LyricRow({
   )
 })
 
-const Centered = ({ text }: { text: string }) => (
-  <div className="flex min-h-screen items-center justify-center text-[#EDEDF2]/50">
-    <p>{text}</p>
+// A full-screen status message: a headline plus an optional hint or action.
+const Centered = ({ text, children }: { text: string; children?: React.ReactNode }) => (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
+    <p className="text-lg font-semibold text-[#EDEDF2]/70">{text}</p>
+    {children && <div className="text-sm text-[#EDEDF2]/45">{children}</div>}
   </div>
 )
 
+const INLINE_LINK = "font-semibold text-[#F4F2F8] underline underline-offset-4"
+
 export function LyricDisplay() {
-  const nowPlaying = useNowPlaying()
-  const lyrics = useLyrics(
+  const player = useNowPlaying()
+  const nowPlaying = player.status === "ready" ? player.nowPlaying : null
+  const lyricsState = useLyrics(
     nowPlaying?.track,
     nowPlaying?.artist,
     nowPlaying?.album,
     nowPlaying?.durationMs,
   )
+  const lyrics = lyricsState.status === "ready" ? lyricsState.lyrics : null
   const syncOffset = useSyncOffset()
   const { progress, seekTo } = usePlaybackClock(
     nowPlaying?.progressMs,
@@ -175,6 +238,7 @@ export function LyricDisplay() {
   )
   const palette = useColorPalette(nowPlaying?.albumArtUrl)
   const activeLineRef = useRef<HTMLParagraphElement>(null)
+  const idle = useIdle(CINEMA_IDLE_MS)
 
   // Card selection. It remembers which track it was started on, so when the
   // song changes it simply stops applying — no effect needed to reset it, and
@@ -185,6 +249,44 @@ export function LyricDisplay() {
   } | null>(null)
   const selecting = selection !== null && selection.track === nowPlaying?.track
   const selected = selecting ? selection.indices : NO_SELECTION
+
+  // Cinema mode: only while lyrics are on screen, and never mid-selection (the
+  // selection bar would vanish while someone is using it).
+  const cinema =
+    idle &&
+    !selecting &&
+    (lyricsState.status === "ready" &&
+      (lyricsState.lyrics.type === "synced-lines" || lyricsState.lyrics.type === "unsynced"))
+
+  // On a phone, the tap that wakes cinema mode would otherwise also land on
+  // whatever is under the finger — the buttons are hidden, so usually a lyric
+  // line, which seeks the song. So in cinema mode a touch only wakes the screen:
+  // the click it produces is swallowed before anything sees it. (Hiding an
+  // overlay isn't enough — React shows the buttons again between the touch and
+  // the click.) Mouse users move the pointer, which wakes things, long before
+  // they click, so this is touch-only.
+  const cinemaRef = useRef(false)
+  useEffect(() => {
+    cinemaRef.current = cinema
+  })
+  useEffect(() => {
+    function onTouchStart() {
+      if (!cinemaRef.current) return
+      function swallow(e: MouseEvent) {
+        e.stopPropagation()
+        e.preventDefault()
+        stop()
+      }
+      function stop() {
+        window.removeEventListener("click", swallow, true)
+        clearTimeout(timer)
+      }
+      window.addEventListener("click", swallow, true)
+      const timer = setTimeout(stop, 800) // a touch that never becomes a click
+    }
+    window.addEventListener("touchstart", onTouchStart, { capture: true, passive: true })
+    return () => window.removeEventListener("touchstart", onTouchStart, { capture: true })
+  }, [])
 
   // Stable identity (functional update, no deps) so memoized rows aren't
   // re-rendered just because this function was recreated.
@@ -253,10 +355,24 @@ export function LyricDisplay() {
       Math.abs(activeIndex - prevIndex) > SEEK_JUMP_LINES
 
     activeLineRef.current.scrollIntoView({
-      behavior: jumped ? "auto" : "smooth",
+      behavior:
+        jumped || window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
       block: "center",
     })
   }, [activeIndex, nowPlaying?.track, selecting])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "f" || e.metaKey || e.ctrlKey || e.altKey) return
+      // typing an "f" into the note field is text, not a shortcut
+      if ((e.target as HTMLElement | null)?.closest("input, textarea, [contenteditable='true']")) return
+      if (document.fullscreenEnabled) toggleFullscreen()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   async function createCard() {
     if (!nowPlaying) return
@@ -328,19 +444,60 @@ export function LyricDisplay() {
 
   // The sync-offset readout is only shown on synced lyrics — it does nothing
   // anywhere else, so showing it there would just be noise.
+  if (player.status === "loading") {
+    return <Shell palette={palette}><Centered text="Connecting to Spotify…" /></Shell>
+  }
+  if (player.status === "signed-out") {
+    return (
+      <Shell palette={palette}>
+        <Centered text="You're signed out">
+          <Link href="/" className={INLINE_LINK}>Sign in with Spotify</Link> to see your lyrics.
+        </Centered>
+      </Shell>
+    )
+  }
+  if (player.status === "error") {
+    return (
+      <Shell palette={palette}>
+        <Centered text="Can't reach Spotify right now">Retrying automatically…</Centered>
+      </Shell>
+    )
+  }
   if (!nowPlaying) {
-    return <Shell palette={palette}><Centered text="Nothing playing" /></Shell>
+    return (
+      <Shell palette={palette}>
+        <Centered text="Nothing playing">
+          Play something on Spotify, or{" "}
+          <Link href="/playlists" className={INLINE_LINK}>pick a playlist</Link>.
+        </Centered>
+      </Shell>
+    )
+  }
+  if (lyricsState.status === "error") {
+    return (
+      <Shell palette={palette} art={nowPlaying?.albumArtUrl}>
+        <Centered text="Couldn't load the lyrics">
+          <button onClick={lyricsState.retry} className={INLINE_LINK}>Try again</button>
+        </Centered>
+      </Shell>
+    )
   }
   if (!lyrics) {
-    return <Shell palette={palette}><Centered text="Loading lyrics…" /></Shell>
+    return <Shell palette={palette} art={nowPlaying?.albumArtUrl}><Centered text="Loading lyrics…" /></Shell>
   }
   if (lyrics.type === "none") {
-    return <Shell palette={palette}><Centered text="No lyrics found" /></Shell>
+    return (
+      <Shell palette={palette} art={nowPlaying?.albumArtUrl}>
+        <Centered text="No lyrics for this one">
+          {nowPlaying.track} isn&apos;t in any of the lyric sources yet.
+        </Centered>
+      </Shell>
+    )
   }
 
   if (lyrics.type === "unsynced") {
     return (
-      <Shell palette={palette}>
+      <Shell palette={palette} art={nowPlaying?.albumArtUrl} cinema={cinema}>
         <SourceBadge source={lyrics.source} type={lyrics.type} />
         <div className="mx-auto max-w-2xl space-y-3 px-6 py-24 text-lg text-[#EDEDF2]/70">
           {(lyrics.lines as string[]).map((line, i) => (
@@ -368,7 +525,12 @@ export function LyricDisplay() {
 
   return (
     // the share bar takes over the bottom edge, so the sync readout steps aside
-    <Shell palette={palette} syncOffset={selecting ? undefined : syncOffset}>
+    <Shell
+      palette={palette}
+      art={nowPlaying?.albumArtUrl}
+      syncOffset={selecting ? undefined : syncOffset}
+      cinema={cinema}
+    >
       <SourceBadge source={lyrics.source} type={lyrics.type} />
       <div className="mx-auto max-w-2xl space-y-4 px-6 py-[40vh]">
         {lines.map((line, i) => (

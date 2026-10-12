@@ -82,7 +82,7 @@ export function SelectionBar({
 
   if (!selecting) {
     return (
-      <div className="fixed bottom-5 left-5 z-20 flex items-center gap-2">
+      <div className="lyriq-chrome fixed bottom-5 left-5 z-20 flex items-center gap-2">
         <button
           onClick={() => {
             reset()
@@ -128,11 +128,20 @@ export function SelectionBar({
     )
   }
 
-  const status = error ?? (count ? `${count} of ${max} lines` : `Tap up to ${max} lines`)
-
   return (
     <Bar>
-      <span className={error ? "text-[#F5A34A]" : "text-[#EDEDF2]/70"}>{status}</span>
+      {error ? (
+        <span className="text-[#F5A34A]">{error}</span>
+      ) : (
+        // On a phone the three buttons leave little room, so the status shortens
+        // rather than wrapping onto two lines.
+        <span className="whitespace-nowrap text-[#EDEDF2]/70">
+          <span className="sm:hidden">{count ? `${count}/${max}` : "Pick lines"}</span>
+          <span className="hidden sm:inline">
+            {count ? `${count} of ${max} lines` : `Tap up to ${max} lines`}
+          </span>
+        </span>
+      )}
       <button
         onClick={() => {
           reset()
