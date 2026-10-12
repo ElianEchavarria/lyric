@@ -16,6 +16,10 @@ export default defineConfig({
     // clone or CI — and generating the client doesn't need a database.
     // Migrations take locks a connection pooler can't hold, so in production
     // they use Neon's direct URL; the app itself keeps the pooled DATABASE_URL.
-    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+    // (The Vercel ↔ Neon integration names the direct one DATABASE_URL_UNPOOLED.)
+    url:
+      process.env.DIRECT_URL ??
+      process.env.DATABASE_URL_UNPOOLED ??
+      process.env.DATABASE_URL,
   },
 });
