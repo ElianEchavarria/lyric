@@ -2,6 +2,7 @@ import type { LyricResult } from "@/types"
 
 const SOURCE_NAMES: Record<NonNullable<LyricResult["source"]>, string> = {
   lrclib: "LRCLIB",
+  "lyrics.ovh": "lyrics.ovh",
   genius: "Genius",
 }
 

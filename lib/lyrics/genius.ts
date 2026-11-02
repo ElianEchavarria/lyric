@@ -19,7 +19,7 @@ const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Spotify titles carry suffixes Genius doesn't use in its search index:
 // "Song - Remastered 2011", "Song (feat. X)".
-function cleanTitle(track: string): string {
+export function cleanTitle(track: string): string {
     return track
         .split(" - ")[0]
         .replace(/\((feat|with|ft)\.?[^)]*\)/gi, "")

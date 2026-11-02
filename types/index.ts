@@ -55,7 +55,7 @@ export interface SyncedLine {
 }
 
 export interface LyricResult {
-    source: "lrclib" | "genius" | null;
+    source: "lrclib" | "lyrics.ovh" | "genius" | null;
     type: "synced-lines" | "synced-words" | "unsynced" | "none";
     lines: SyncedLine[] | string[];
 }

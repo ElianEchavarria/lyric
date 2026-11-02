@@ -61,7 +61,7 @@ When I'm listening to a song on Spotify and want to follow the words, I struggle
 | --- | --- | --- |
 | Mirrors what's playing on Spotify, on any device | Nothing to search for; lyrics appear when I press play | **MVP** |
 | Synced lyrics with a word-by-word karaoke sweep | I always know exactly which word is being sung | **MVP** |
-| Lyric fallback: LRCLIB exact match → LRCLIB search → Genius | I still get words when a song has no timed lyrics | **MVP** |
+| Lyric fallback: LRCLIB exact match → LRCLIB search → lyrics.ovh → Genius | I still get words when a song has no timed lyrics | **MVP** |
 | Album-art colors and cinema mode | It feels like the album, with nothing on screen but the words | Built beyond MVP |
 | Tap a line to jump there | I can replay a line I missed | Built beyond MVP |
 | Playlist shortcut | I can start music from the same screen | Built beyond MVP |
@@ -105,7 +105,7 @@ When I'm listening to a song on Spotify and want to follow the words, I struggle
 | Server / API | Next.js route handlers | The Spotify client secret must stay on a server, and Genius pages can't be fetched from a browser. This keeps one repo and one deploy instead of two apps. |
 | Sign-in | Auth.js v5 with JWT sessions | It has a Spotify provider, and it's where hourly token refresh happens |
 | Data storage | PostgreSQL (Neon) with Prisma | Saved moments have to survive across devices, and Prisma gives me typed queries |
-| Outside services | Spotify Web API, LRCLIB, Genius | Spotify says what's playing; LRCLIB has free timed lyrics; Genius has the widest catalog as a backup |
+| Outside services | Spotify Web API, LRCLIB, lyrics.ovh, Genius | Spotify says what's playing; LRCLIB has free timed lyrics; lyrics.ovh is the plain-text backup in production; Genius only works when I run it locally, because its song pages return 403 to Vercel's servers |
 | Hosting / deploy | Vercel | Built for Next.js, and it deploys on every push to `main` |
 
 ### Architecture sketch
@@ -135,7 +135,8 @@ flowchart LR
     NP --> Spotify
     LY --> L1["LRCLIB exact match"]
     L1 -. "not found" .-> L2["LRCLIB search"]
-    L2 -. "not found" .-> L3["Genius"]
+    L2 -. "not found" .-> L3["lyrics.ovh"]
+    L3 -. "not found" .-> L4["Genius (local only)"]
     MO --> DB[("Neon PostgreSQL")]
 ```
 
@@ -160,7 +161,7 @@ flowchart LR
 ## 6. Open Questions
 
 - **Timing on phones:** the 650ms default was tuned on my own setup. Is it right for other devices and for Bluetooth headphones, given that phones can't adjust it yet?
-- **Genius scraping:** it depends on their page markup, so it can break without warning. The parser is isolated so that it's easy to fix.
+- **Genius in production:** the search API works from Vercel, but the song pages return 403 there, so Genius only helps when I run Lyriq locally. I added lyrics.ovh instead of trying to get around the block. Should I replace Genius completely, or use its search to link out to the song page?
 - **Lyric cache:** it lives in server memory, so it empties on every serverless restart. Would a database cache be worth it?
 - **Word timing:** most sources only time whole lines, so word timing is usually an even estimate. How far off can it get before it feels wrong?
 - **Sharing:** Spotify's approved-accounts limit means I add each friend by hand. How far can this go without an organization account?
