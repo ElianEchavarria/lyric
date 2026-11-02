@@ -141,23 +141,51 @@ const PlaylistPicker = () => {
             <button
               key={playlist.id}
               onClick={() => play(playlist.uri)}
-              className="group flex flex-col gap-3 rounded-[20px] bg-white/[0.06] p-3 text-left backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/[0.10]"
+              className="group relative isolate flex flex-col gap-3 rounded-[24px] bg-gradient-to-b from-white/[0.09] to-white/[0.02] p-2.5 text-left ring-1 ring-white/[0.08] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-1.5 hover:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C45478] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
-              {playlist.imageUrl ? (
+              {/* cover-colour glow that bleeds out behind the card on hover */}
+              {playlist.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={playlist.imageUrl}
-                  alt={`${playlist.name} cover`}
-                  className="aspect-square w-full rounded-2xl object-cover shadow-lg shadow-black/40"
+                  alt=""
+                  aria-hidden
+                  className="pointer-events-none absolute inset-4 -z-10 h-[calc(100%-2rem)] w-[calc(100%-2rem)] scale-90 rounded-full object-cover opacity-0 blur-2xl saturate-150 transition duration-500 group-hover:scale-110 group-hover:opacity-60 group-focus-visible:opacity-60"
                 />
-              ) : (
-                <div className="aspect-square w-full rounded-2xl bg-white/[0.06]" />
               )}
-              <div className="flex flex-col gap-0.5 px-1 pb-1">
-                <span className="truncate text-sm font-semibold tracking-tight text-[#F4F2F8]">
+
+              <div className="relative aspect-square w-full overflow-hidden rounded-[18px] shadow-xl shadow-black/50">
+                {playlist.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={playlist.imageUrl}
+                    alt={`${playlist.name} cover`}
+                    className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#5B2E91] via-[#3A1D5E] to-[#C45478]">
+                    <svg viewBox="0 0 24 24" className="h-1/3 w-1/3 fill-white/70" aria-hidden>
+                      <path d="M21 3v12.5a3.5 3.5 0 1 1-2-3.163V7.36L11 8.693V18.5a3.5 3.5 0 1 1-2-3.163V5.307L21 3Z" />
+                    </svg>
+                  </div>
+                )}
+
+                {/* legibility scrim + inner highlight */}
+                <div className="pointer-events-none absolute inset-0 rounded-[18px] bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 ring-1 ring-inset ring-white/10 transition duration-300 group-hover:opacity-100" />
+
+                {/* floating play button */}
+                <span className="absolute bottom-3 right-3 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full bg-gradient-to-br from-[#F4F2F8] to-[#D9D3E6] text-[#0A0A0F] opacity-0 shadow-lg shadow-black/40 transition duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 group-active:scale-95">
+                  <svg viewBox="0 0 24 24" className="ml-0.5 h-5 w-5 fill-current" aria-hidden>
+                    <path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z" />
+                  </svg>
+                </span>
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-1.5 px-1.5 pb-1.5">
+                <span className="truncate text-[15px] font-bold tracking-tight text-[#F4F2F8]">
                   {playlist.name}
                 </span>
-                <span className="text-xs text-[#EDEDF2]/45">
+                <span className="w-fit rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-medium text-[#EDEDF2]/60 ring-1 ring-inset ring-white/[0.06]">
                   {playlist.trackCount} {playlist.trackCount === 1 ? "track" : "tracks"}
                 </span>
               </div>
