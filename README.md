@@ -10,38 +10,33 @@ Live, word-by-word lyrics for whatever's playing on Spotify, built for me: someo
 
 ## 1. About Me (the User)
 
-I'm a daily Spotify listener and a CS student who is learning TypeScript. **FILL IN: when and where you listen (commute, studying, gym, in the car), and any other role that matters here.**
+I'm a Spotify Premium listener and a CS student who is learning TypeScript. I usually listen through my phone speaker, and sometimes on my Mac. I want to follow the words of what I'm playing, and I care how that looks.
 
 **The last 3 times this happened:**
 
-1. **FILL IN: when and where** / what went wrong / what it cost / what you did
-2. **FILL IN: when and where** / what went wrong / what it cost / what you did
-3. **FILL IN: when and where** / what went wrong / what it cost / what you did
+1. **Sep 10, testing my first synced version:** the singer would sing a line, and the display only reached it a moment later. I was reading behind the song, which defeats the point. So I built a clock that estimates the song's position between Spotify updates.
+2. **Sep 27, testing word-by-word highlighting:** it was still a little behind the voice, and a word sweep only feels right if it lands with the singing. I kept tuning, and added an adjustable timing offset that defaults to 650ms.
+3. **Oct 3, listening on my Mac:** I tapped a line I'd saved to hear it again, and Spotify just sat empty and paused instead of switching to the song, so I couldn't get back to that moment. I compared polling logs, found that the Mac app ignores bare song requests, and fixed it by playing the song inside its album.
 
 **What it costs me:**
 
-- ⏱️ **Time:** **FILL IN: minutes per day spent searching for lyrics or switching between screens**
-- 💸 **Money:** **FILL IN: for example, $0, or what an Apple Music subscription would cost just for its lyrics**
-- 🔋 **Energy:** **FILL IN: for example, leaving the song to go look up a line**
-- 🙂 **Joy:** **FILL IN: what you lose when you can't follow a song you love**
+- ⏱️ **Time:** every song that shows no lyrics means leaving what I'm doing and switching apps to look for them.
+- 💸 **Money:** I already pay for Spotify Premium. Getting Apple Music's word-by-word lyrics would mean paying for a second music subscription.
+- 🔋 **Energy:** switching between apps is friction, and it pulls my attention away from the song.
+- 🙂 **Joy:** plain lyrics that lag behind the singer, or no lyrics at all, make it harder to get into a song I love.
 
 ---
 
 ## 2. Problem Statement
 
-**Gut check:** I need lyrics that move with the song, for every song I play, because **FILL IN: your reason in your own words.**
+**Gut check:** I need lyrics that move with the song, for every song I play, because some songs on Spotify show no lyrics at all, and the ones that do don't have the beautiful word-for-word display Apple Music has.
 
 **Five Whys:**
 
-1. **Why** can't I follow along with a song? The lyrics in front of me are plain, or there are none. **CONFIRM**
-2. **Why** does that matter? I lose my place and can't tell which word is being sung. **CONFIRM**
-3. **Why** can't I just use what Spotify shows? It highlights whole lines, not words, and many songs don't have synced lyrics. **CONFIRM**
-4. **Why** don't other sources fill the gap? They're separate pages with static text that doesn't know where I am in the song. **CONFIRM**
-5. **Why** does nothing bring this together? The best display is locked to another subscription, and the widest lyric catalogs have no timing, so nothing joins my Spotify playback with timed lyrics from several sources. **CONFIRM**
-
+1. **Why** can't I follow along with a song? The lyrics in front of me are plain, or there are none.2. **Why** does that matter? I lose my place and can't tell which word is being sung.3. **Why** can't I just use what Spotify shows? It highlights whole lines, not words, and many songs don't have synced lyrics.4. **Why** don't other sources fill the gap? They're separate pages with static text that doesn't know where I am in the song.5. **Why** does nothing bring this together? The best display is locked to another subscription, and the widest lyric catalogs have no timing, so nothing joins my Spotify playback with timed lyrics from several sources.
 **Problem statement:**
 
-When I'm listening to a song on Spotify and want to follow the words, I struggle to see the right line at the right moment, and some songs show no synced lyrics at all, which costs me **FILL IN: minutes per day and/or the joy of the song**. This happens because the lyrics I can see are either timed only by line or stored somewhere that has no idea what I'm playing. Right now I **CONFIRM: look the song up on Genius or Google in another tab**, but that text doesn't move with the music, and I lose my place and pull myself out of the song.
+When I'm listening to a song on Spotify and want to follow the words, I struggle to see the right line at the right moment, and some songs show no synced lyrics at all, which costs me the time it takes to go find the words on every song that's missing them, and the joy of being inside the song. This happens because the lyrics I can see are either timed only by line or stored somewhere that has no idea what I'm playing. Right now I leave Spotify and look the words up somewhere else, but that text doesn't move with the music, and I lose my place and pull myself out of the song.
 
 **I'll know this is solved when:** I can press play on any device and see the words light up in time with the singing, without searching, and when timed lyrics don't exist I still get the plain words without doing anything.
 
